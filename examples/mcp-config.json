@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "dsh_collaboration": {
+      "command": "C:/Program Files/nodejs/node.exe",
+      "args": [
+        "C:/Users/you/.dsh/profiles/desktop/node_modules/dsh-agent-collaboration/dist/mcp.mjs",
+        "--connection",
+        "C:/Users/you/.dsh/agent-collaboration/client-codex.json"
+      ]
+    }
+  }
+}
