@@ -140,7 +140,7 @@ test('parent interaction consent defaults off and is included in the existing po
     { id: 'codex', label: 'Codex', workspaceIds: ['w1'], models: ['p/m'], presets: ['standard'] },
     { id: 'hermes', label: 'Hermes', workspaceIds: ['w2'], models: ['p/m'], presets: ['standard'], parentInteractions: true },
   ];
-  const state = { data: { clients, policy: { clients }, catalog: {}, sessions: [] }, busy: false };
+  const state = { data: { clients, policy: { clients }, catalog: { workspaces: [{ workspaceId: 'w1' }, { workspaceId: 'w2' }], presets: [{ id: 'standard' }], models: [{ provider: 'p', model: 'm' }] }, sessions: [] }, busy: false };
   const actions = [];
   const store = {
     subscribe() {}, getSnapshot: () => state,
@@ -163,6 +163,20 @@ test('parent interaction consent defaults off and is included in the existing po
   effects.forEach(dispose => dispose?.());
 });
 
+test('only changed resource selections drop unavailable grants', () => {
+  const original = { id: 'codex', label: 'Codex', workspaceIds: ['w1', 'missing-workspace'], presets: ['standard', 'missing-preset'], models: ['p/retired'] };
+  const catalog = { workspaces: [{ workspaceId: 'w1' }], presets: [{ id: 'standard' }], models: [{ provider: 'p', model: 'current' }] };
+  const renamed = ui.currentClientPolicy(original, { ...original, label: 'Renamed', parentInteractions: true }, catalog);
+  assert.deepEqual(renamed.workspaceIds, original.workspaceIds);
+  assert.deepEqual(renamed.presets, original.presets);
+  assert.deepEqual(renamed.models, original.models);
+  const switched = ui.currentClientPolicy(original, {
+    ...original, models: ['p/retired', 'p/current'], workspaceIds: ['w1', 'missing-workspace', 'another-missing'],
+  }, catalog);
+  assert.deepEqual(switched.workspaceIds, ['w1']);
+  assert.deepEqual(switched.presets, original.presets);
+  assert.deepEqual(switched.models, ['p/current']);
+});
 test('sidebar opens the native session; takeover and stop are independent actions', async () => {
   const registrations = [];
   const navigated = [];

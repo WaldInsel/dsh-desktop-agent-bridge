@@ -438,13 +438,17 @@ export class Broker {
         return { connectionFile };
       }
       if (request.type === 'save-policy') {
-        const catalog = await this.adapter.catalog();
         if (new Set(request.clients.map(c => c.id)).size !== request.clients.length) fail('DUPLICATE_CLIENT', '客户端 ID 重复。');
+        let catalog;
         for (const policy of request.clients) {
           const client = this.client(policy.id);
-          if (!policy.workspaceIds.every(id => catalog.workspaces.some(w => w.workspaceId === id)) ||
-              !policy.presets.every(id => catalog.presets.some(p => p.id === id)) ||
-              !policy.models.every(id => catalog.models.some(m => `${m.provider}/${m.model}` === id))) {
+          const added = key => policy[key].filter(id => !client[key].includes(id));
+          const workspaces = added('workspaceIds'), presets = added('presets'), models = added('models');
+          if (!workspaces.length && !presets.length && !models.length) continue;
+          catalog ??= await this.adapter.catalog();
+          if (!workspaces.every(id => catalog.workspaces.some(w => w.workspaceId === id)) ||
+              !presets.every(id => catalog.presets.some(p => p.id === id)) ||
+              !models.every(id => catalog.models.some(m => `${m.provider}/${m.model}` === id))) {
             fail('UNKNOWN_RESOURCE', '授权目录包含当前不可用的资源。');
           }
         }

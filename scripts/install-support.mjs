@@ -66,8 +66,23 @@ function managedBlock(text, required) {
   const start = starts[0].index;
   const finish = ends[0].index + ends[0][0].length + (text[ends[0].index + ends[0][0].length] === '\n' ? 1 : 0);
   const block = text.slice(start, finish);
-  const lines = block.split(/\r?\n/).filter(line => line.trim() && !line.trimStart().startsWith('#'));
   const invalid = () => { throw new Error('Managed block must contain only one plugin insert with known fields; inspect it manually.'); };
+  const physical = block.split(/\r?\n/);
+  const lines = [];
+  for (let i = 0; i < physical.length; i++) {
+    let line = physical[i];
+    if (!line.trim() || line.trimStart().startsWith('#')) continue;
+    const quoted = /^( {6}name| {8}(?:stateDirectory|initialWorkspace)): "/.exec(line);
+    if (quoted) {
+      const indentation = quoted[1].length - quoted[1].trimStart().length;
+      while ((line.match(/\\+$/)?.[0].length ?? 0) % 2 === 1) {
+        const continuation = physical[++i];
+        if (!continuation || !new RegExp(`^ {${indentation + 1},}\\S`).test(continuation)) invalid();
+        line = line.slice(0, -1) + continuation.trimStart();
+      }
+    }
+    lines.push(line);
+  }
   if (lines[0] !== '- insert:' || lines[1] !== '    - id: agent-collaboration') invalid();
   const fields = new Set(), config = new Set();
   let inConfig = false;
@@ -87,11 +102,12 @@ function managedBlock(text, required) {
     config.add(setting[1]);
   }
   if (!fields.has('name') || !fields.has('config')) invalid();
-  for (const key of ['name', ...config]) scalar(block, key);
+  const parsedBlock = lines.join('\n');
+  for (const key of ['name', ...config]) scalar(parsedBlock, key);
   const outside = text.slice(0, start) + text.slice(finish);
   requireThat(!/\b(?:id|name):[^\r\n]*\b(?:agent-collaboration|dsh-agent-collaboration)\b/.test(outside),
     'Another plugin entry exists outside the managed block.');
-  return { start, finish, block };
+  return { start, finish, block, parsedBlock };
 }
 
 function scalar(block, key) {
@@ -182,7 +198,7 @@ export async function maintain(operation, options = {}) {
     requireThat(!original || Buffer.from(text).equals(original), 'Configuration must be UTF-8; no files changed.');
     const managed = managedBlock(text, operation !== 'install');
     requireThat(operation !== 'install' || !managed, 'Plugin is already installed; use update-local.mjs.');
-    const configuredState = managed && scalar(managed.block, 'stateDirectory');
+    const configuredState = managed && scalar(managed.parsedBlock, 'stateDirectory');
     requireThat(!managed || configuredState,
       'Legacy managed block has no stateDirectory. Close DSH and add its existing absolute stateDirectory under config before maintenance.');
     const defaultState = join(home, '.dsh', 'agent-collaboration');
@@ -191,7 +207,7 @@ export async function maintain(operation, options = {}) {
     if (managed) requireThat(resolve(configuredState) === stateDir,
       '--state-dir does not match the installed configuration.');
     if (managed) {
-      const name = scalar(managed.block, 'name');
+      const name = scalar(managed.parsedBlock, 'name');
       requireThat(name === plugin || name === pathToFileURL(join(target, 'dist', 'host.mjs')).href,
         'Managed plugin entry points to a different package.');
     }

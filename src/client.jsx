@@ -193,6 +193,15 @@ function ChoiceList({ legend, options, selected = [], onChange, disabled }) {
   </fieldset>;
 }
 
+export function currentClientPolicy(original, draft, catalog) {
+  const changed = key => JSON.stringify(draft[key]) !== JSON.stringify(original[key]);
+  return {
+    ...draft,
+    workspaceIds: changed('workspaceIds') ? draft.workspaceIds.filter(id => (catalog.workspaces || []).some(row => row.workspaceId === id)) : draft.workspaceIds,
+    presets: changed('presets') ? draft.presets.filter(id => (catalog.presets || []).some(row => row.id === id)) : draft.presets,
+    models: changed('models') ? draft.models.filter(id => (catalog.models || []).some(row => `${row.provider}/${row.model}` === id)) : draft.models,
+  };
+}
 function ClientPolicy({ client, state, store }) {
   const [draft, setDraft] = useState(client);
   const [dirty, setDirty] = useState(false);
@@ -207,7 +216,7 @@ function ClientPolicy({ client, state, store }) {
   };
   const save = async event => {
     event.preventDefault();
-    const result = await store.act({ type: 'save-policy', clients: replaceClientPolicy(state.data.policy.clients, draft) });
+    const result = await store.act({ type: 'save-policy', clients: replaceClientPolicy(state.data.policy.clients, currentClientPolicy(client, draft, catalog)) });
     if (result.ok) { setDirty(false); setSaved(true); }
   };
   return <form className="dsh-ac-card" onSubmit={save}>
@@ -230,7 +239,7 @@ function ClientPolicy({ client, state, store }) {
           description: `${row.provider}/${row.model}；思考强度：${row.reasoningEfforts?.join('、') || '模型默认'}` }))}
         onChange={value => change('models', value)} />
     </div>
-    <p className="dsh-ac-hint">仅可选择已授权资源。空列表表示不授权；模型与思考强度由 Agent 在创建任务时选择。</p>
+    <p className="dsh-ac-hint">仅可选择已授权资源；更改授权类别时会移除其中当前不可用的资源。空列表表示不授权；模型与思考强度由 Agent 在创建任务时选择。</p>
     <label className="dsh-ac-toggle">
       <input type="checkbox" checked={Boolean(draft.parentInteractions)} disabled={state.busy}
         aria-describedby={`dsh-ac-parent-interactions-${client.id}`}

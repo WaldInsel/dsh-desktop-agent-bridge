@@ -116,6 +116,41 @@ test('update replaces package, backs up old files, and preserves config, state a
   await unlocked(f);
 });
 
+test('update accepts DSH-folded quoted paths without rewriting configuration', async t => {
+  const f = await fixture(t);
+  const workspace = join(f.base, 'project');
+  await fs.mkdir(workspace);
+  await f.run('install', { initialWorkspace: workspace });
+  const installed = await fs.readFile(f.patch, 'utf8');
+  const folded = installed
+    .replace('agent-collaboration/dist/host.mjs"', 'agent-\\\r\n          collaboration/dist/host.mjs"')
+    .replace(`stateDirectory: ${JSON.stringify(f.stateDir)}`,
+      `stateDirectory: ${JSON.stringify(f.stateDir).replace('agent-collaboration', 'agent-\\\r\n          collaboration')}`)
+    .replace(`initialWorkspace: ${JSON.stringify(workspace)}`,
+      `initialWorkspace: ${JSON.stringify(workspace).replace('installer-test-', 'installer-\\\r\n          test-')}`);
+  assert.equal((folded.match(/\\\r\n/g) ?? []).length, 3);
+  await fs.writeFile(f.patch, folded);
+  await fs.writeFile(join(f.sourceRoot, 'dist', 'host.mjs'), '// updated host\n');
+  const result = await f.run('update');
+  assert.equal(await fs.readFile(f.patch, 'utf8'), folded);
+  assert.equal(await fs.readFile(join(result.backup, 'cordis.patch.yml'), 'utf8'), folded);
+  assert.equal(await fs.readFile(join(f.target, 'dist', 'host.mjs'), 'utf8'), '// updated host\n');
+
+  for (const addition of ['      unknown: true\r\n', '        unknown: true\r\n', '    - id: injected\r\n']) {
+    const malicious = folded.replace('# END dsh-agent-collaboration', `${addition}# END dsh-agent-collaboration`);
+    await fs.writeFile(f.patch, malicious);
+    await assert.rejects(f.run('update'), /Managed block must contain only/);
+    assert.equal(await fs.readFile(f.patch, 'utf8'), malicious);
+    assert.equal(await fs.readFile(join(f.target, 'dist', 'host.mjs'), 'utf8'), '// updated host\n');
+  }
+  const interrupted = folded.replace('          collaboration/dist/host.mjs"',
+    '          # text inside the quoted scalar\r\n          collaboration/dist/host.mjs"');
+  await fs.writeFile(f.patch, interrupted);
+  await assert.rejects(f.run('update'), /Managed block must contain only|Unsupported name/);
+  assert.equal(await fs.readFile(f.patch, 'utf8'), interrupted);
+  await unlocked(f);
+});
+
 test('uninstall removes only its managed block and package; retains state and credentials', async t => {
   const f = await fixture(t);
   await f.run('install');

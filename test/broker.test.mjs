@@ -104,6 +104,34 @@ test('client credentials determine identity; catalog and state do not return cre
   assert.equal(JSON.stringify(await f.broker.catalog('codex')).includes(f.tokens.codex), false);
 });
 
+test('saving one client ignores stale resources held by another client', async t => {
+  const f = await fixture(t);
+  const catalog = await f.adapter.catalog();
+  f.adapter.catalog = async () => ({
+    ...catalog, models: [{ provider: 'local', model: 'new', reasoningEfforts: ['high'] }],
+  });
+
+  await f.broker.action({ type: 'save-policy', clients: [
+    { ...f.policies[0], models: ['local/new'] }, f.policies[1],
+  ] });
+  assert.deepEqual(f.broker.client('codex').models, ['local/new']);
+  assert.deepEqual(f.broker.client('hermes').models, ['local/model']);
+
+  f.adapter.catalog = async () => { throw new Error('catalog unavailable'); };
+  await f.broker.action({ type: 'save-policy', clients: [
+    { ...f.policies[1], label: 'Hermes updated' },
+  ] });
+  assert.equal(f.broker.client('hermes').label, 'Hermes updated');
+
+  f.adapter.catalog = async () => ({
+    ...catalog, models: [{ provider: 'local', model: 'new', reasoningEfforts: ['high'] }],
+  });
+  await assert.rejects(f.broker.action({ type: 'save-policy', clients: [
+    { ...f.policies[0], models: ['local/missing'] },
+  ] }), { code: 'UNKNOWN_RESOURCE' });
+  assert.deepEqual(f.broker.client('codex').models, ['local/new']);
+});
+
 test('a client cannot read, continue, message, or cancel another client session', async t => {
   const f = await fixture(t);
   const run = await f.broker.start('codex', f.input('owned'));
