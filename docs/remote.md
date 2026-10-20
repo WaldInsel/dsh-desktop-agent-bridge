@@ -31,10 +31,14 @@ identity between unrelated callers.
 
 ## 2. Initialize credentials once
 
-From a built source checkout, use absolute paths outside the repository:
+Use the installed bundle's adapter, or a built source checkout. The default
+Desktop installation path is shown below; confirm the file exists first. Store
+credentials outside the repository:
 
 ```powershell
-node dist/remote-mcp.mjs --init --config "$env:USERPROFILE/.dsh/agent-collaboration/remote-grok.json" --public-host bridge.example.com
+$bridge = Join-Path $env:USERPROFILE '.dsh/profiles/desktop/node_modules/dsh-agent-collaboration/dist/remote-mcp.mjs'
+if (!(Test-Path -LiteralPath $bridge)) { throw 'Check the installed plugin path first.' }
+node $bridge --init --config "$env:USERPROFILE/.dsh/agent-collaboration/remote-grok.json" --public-host bridge.example.com
 ```
 
 Replace the example domain with your own lowercase hostname. No protocol, port
@@ -49,7 +53,8 @@ running as the same OS user.
 ## 3. Start the adapter
 
 ```powershell
-node dist/remote-mcp.mjs --connection "$env:USERPROFILE/.dsh/agent-collaboration/client-grokbot.json" --config "$env:USERPROFILE/.dsh/agent-collaboration/remote-grok.json" --client grokbot --port 18769
+$bridge = Join-Path $env:USERPROFILE '.dsh/profiles/desktop/node_modules/dsh-agent-collaboration/dist/remote-mcp.mjs'
+node $bridge --connection "$env:USERPROFILE/.dsh/agent-collaboration/client-grokbot.json" --config "$env:USERPROFILE/.dsh/agent-collaboration/remote-grok.json" --client grokbot --port 18769
 ```
 
 The default client is `grokbot` and the default port is `18769`; custom clients

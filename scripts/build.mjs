@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import assert from 'node:assert/strict';
 import { writeLicenseNotices } from './license-notices.mjs';
@@ -7,8 +7,9 @@ import { VERSION, PACKAGE_NAME } from '../src/protocol.mjs';
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 assert.equal(manifest.version, VERSION, 'package.json and protocol version must match');
 assert.equal(manifest.name, PACKAGE_NAME, 'The internal plugin name must stay compatible');
+await rm(new URL('../dist/', import.meta.url), { recursive: true, force: true });
 await mkdir(new URL('../dist/', import.meta.url), { recursive: true });
-const shared = { bundle: true, format: 'esm', sourcemap: true, minify: false, metafile: true };
+const shared = { bundle: true, format: 'esm', sourcemap: false, minify: false, metafile: true };
 const results = [];
 results.push(await build({
   ...shared, platform: 'node', target: 'node22',

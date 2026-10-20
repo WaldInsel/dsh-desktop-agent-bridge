@@ -2,3 +2,4 @@
 *.png binary
 *.jpg binary
 *.gif binary
+dist/*.mjs -diff linguist-generated=true

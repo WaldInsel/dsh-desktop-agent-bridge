@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const PACKAGE_NAME = 'dsh-agent-collaboration';
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 const id = z.string().min(1).max(200);
 const clientId = z.string().regex(/^[a-z][a-z0-9_-]{0,47}$/);
 export const clientPolicySchema = z.object({

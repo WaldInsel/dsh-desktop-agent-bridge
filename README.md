@@ -4,7 +4,7 @@
 
 让 Codex、Hermes、Grok Bot 和其他 MCP 客户端，把任务交给**已经运行的 DeepSeek Harness 桌面应用**。用户在同一个 DSH 窗口查看原生会话、插话、审批、接管或停止任务。
 
-这是独立的第三方插件，与 DeepSeek AI 无隶属关系。当前版本 `0.1.0` 为预览版；已验证的宿主是 **Windows + DSH `0.2.1-rc.2`**，其他系统和版本尚未确认兼容。
+这是独立的第三方插件，与 DeepSeek AI 无隶属关系。当前版本 `0.1.1` 为预览版；已验证的宿主是 **Windows + DSH `0.2.1-rc.2`**，其他系统和版本尚未确认兼容。
 
 **本机 stdio 连接不需要域名、服务器或公网服务。** 只有云端父 Agent 无法连接本机进程时，才需要它可访问的 HTTPS 入口。远程入口可以采用托管隧道或自建 HTTPS，不强制购买域名或 VPS；托管隧道目前只是可选部署建议，尚未集成或实测，也没有一键配置。默认安装仅配置本机插件，不安装新服务、不创建账号、不触发付费。
 
@@ -19,45 +19,26 @@
 
 能力包是 DSH 已有的会话能力配置，包括其 Skill 和 MCP 等工具。本插件选择已有能力包，不提供任意安装 Skill/MCP、修改全局模型或外部 agent 自行提权的接口。
 
-## 安装与首次连接
+## 在 DSH 中直接安装
 
-需要 Node.js 22 或更高版本、已正常运行并完成配置的 DSH 桌面应用，以及一个支持 MCP 的客户端。先完成或停止协作任务，**退出 DSH 桌面应用**，再执行安装、更新或卸载。
+已验证的宿主版本为 **DSH 桌面端 `0.2.1-rc.2`**。先完成或停止正在运行的协作任务，在 DSH 左侧打开「插件 → 添加插件」，输入：
 
-在仓库目录运行：
-
-```bash
-npm ci --ignore-scripts --no-audit --no-fund
-npm test
-npm run build
-node scripts/install-local.mjs
+```text
+https://github.com/WaldInsel/dsh-desktop-agent-bridge
 ```
 
-安装脚本将构建产物放入 desktop profile 的插件目录，并添加带标记的配置块；修改前保留备份，不替换 DSH 安装包。默认不创建工作区、不授予资源权限。脚本支持自定义位置：
+点击「安装」，按插件页提示启用 `dsh-agent-collaboration`，然后**完全退出并重新打开 DSH**。这是 DSH 自带的插件安装流程，不需要先运行本仓库的构建或离线安装脚本。若要固定已审查的代码，可改用 `github:WaldInsel/dsh-desktop-agent-bridge#<完整提交 SHA>`；先核对该提交已推送。仓库随 Git 提供预构建的 `dist/` 和第三方许可文件，安装时无需批准仓库执行 `prepare`/构建脚本。插件会在现有桌面宿主中运行，不启动第二个 DSH 实例。
 
-```bash
-node scripts/install-local.mjs --help
-```
+也可在相同输入框填写本地源码目录的**绝对路径**（目录内须有 `package.json`、`cordis.patch.yml` 和 `dist/`），例如 `C:\Projects\dsh-desktop-agent-bridge`。本地目录用于开发或离线安装；普通使用建议选择 GitHub 地址。安装时会执行来自该来源的插件代码，请先确认来源可信。[DSH 官方插件安装说明](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-rc.2/docs/user/develop/basic/publish.zh.md)介绍了 bundle 与 profile 的关系。
 
-| 选项 | 含义 |
-| --- | --- |
-| `--home <目录>` | 用户目录，用于推导默认 DSH 路径 |
-| `--profile <目录>` | 完整的 DSH profile 目录 |
-| `--state-dir <目录>` | 本插件的状态和连接凭据目录 |
-| `--backup <目录>` | 本次操作的新备份目录 |
-| `--initial-workspace <已存在目录>` | 仅安装时可选：注册工作区及 Codex 的初始授权；默认留空 |
+**如果此前用 `scripts/install-local.mjs` 手工装过本插件，不要直接再点「安装」。** 先按下文[旧安装迁移](#旧安装迁移)移除旧配置层，保留状态和凭据，再从插件页安装，避免同一个插件 ID 重复加载。
 
-默认 profile 为 `~/.dsh/profiles/desktop`，协作状态为 `~/.dsh/agent-collaboration`。备份默认写入 `~/.dsh/backups/dsh-agent-collaboration/` 下的新目录，包含原配置、原插件包（如有）及 `manifest.json`。更新和卸载沿用托管配置中的状态路径；`--state-dir` 不能用来迁移状态或绕过活动任务检查。
+### 首次连接外部 Agent
 
-脚本成功并返回 `restartRequired: true` 只表示文件维护完成，尚未验证 DSH 启动和客户端连接；启动后按下面步骤检查。
-
-安装后：
-
-1. 启动 DSH，打开「Agent 协作 → 设置」。
-2. 为每个外部客户端创建独立身份，例如 `codex`、`hermes`、`grokbot`。
-3. 勾选它可使用的工作区、能力包和模型，保存授权。空列表表示不授权。
-4. 使用设置页显示的 `client-<id>.json` 连接文件路径配置该客户端。连接文件含令牌，不要把内容粘贴到聊天或提交到仓库。
-
-本机 stdio MCP 配置示例：
+1. 重启后确认左侧出现「Agent 协作」，打开「Agent 协作 → 设置」。
+2. 为 Codex、Hermes 等外部客户端分别创建身份，选择可用工作区、已有能力包和模型，保存授权。新身份默认没有资源权限。
+3. 记下各自 `client-<id>.json` 连接文件的路径；文件内有令牌，只在本机配置中引用其路径，不要粘贴到聊天或提交到仓库。
+4. 为本机 MCP 客户端配置 stdio 启动命令。**这一外部命令需要系统可用的 Node.js 22+**；DSH 插件页安装本身由 DSH 管理。
 
 ```json
 {
@@ -65,7 +46,7 @@ node scripts/install-local.mjs --help
     "dsh_collaboration": {
       "command": "node",
       "args": [
-        "<插件安装目录>/dist/mcp.mjs",
+        "<DSH desktop profile>/node_modules/dsh-agent-collaboration/dist/mcp.mjs",
         "--connection",
         "<协作数据目录>/client-codex.json"
       ]
@@ -74,9 +55,9 @@ node scripts/install-local.mjs --help
 }
 ```
 
-将占位符换成绝对路径。客户端配置格式可能不同；例如 Hermes 使用 `mcp_servers`。每个客户端引用自己的连接文件，不能共用 Codex 身份。重载 MCP 或新建客户端会话后，先实际调用 `dsh_health` 和 `dsh_catalog`。
+默认 desktop profile 为 `~/.dsh/profiles/desktop`，协作数据目录为 `~/.dsh/agent-collaboration`。将占位符换成绝对路径，并**核对实际安装后的包入口是否存在**；不要假定每个平台的物理 pnpm 存储路径相同。客户端配置格式可能不同，例如 Hermes 使用 `mcp_servers`。每个客户端只使用自己的连接文件。
 
-Grok Bot 等云端客户端需要独立认证的 HTTP 适配器和可达 HTTPS 通道，见[远程连接](docs/remote.md)。这是可选部署步骤，本机使用无需完成它。
+重载 MCP 或新建客户端会话后，实际调用 `dsh_health` 和 `dsh_catalog`。Grok Bot 等云端客户端需要独立认证的 HTTP 适配器和可达 HTTPS 通道，见[远程连接](docs/remote.md)；本机连接无需部署公网服务。
 
 ## 分派任务
 
@@ -149,7 +130,7 @@ DSH 原生界面仍可直接处理；两处同时答复时，以原生流程先�
 | 自动检查 | 仓库提供单元测试与构建检查；通过这些检查不等于各客户端实际接入通过 |
 | 其他 DSH 版本、macOS、Linux | 未确认兼容 |
 
-上述真实桌面验收来自开源整理前的本机版本。本次整理后的代码已通过自动回归、构建和 MCP 验证，但尚未替换现有安装，也未重复完整的桌面真人验收。
+此前 `0.1.0` 优化版已安装到现有 DSH 桌面端，并完成同会话两轮对话、接管、交还、停止、父 Agent 问答及一次允许/拒绝审批的真实验收。GitHub 插件页安装路径需要与功能验收分别核对；安装成功后仍应实际调用 `dsh_health`、`dsh_catalog` 并检查原生会话。
 
 本插件依赖 DSH `0.2.1-rc.2` 的会话模型选择、原生交互和 UI 插槽接口，升级宿主后需要重新验收。外部客户端断开时，DSH 已开始的任务可以继续；桌面退出或崩溃不保证继续执行，插件不自动恢复或重发中断任务。
 
@@ -157,31 +138,25 @@ DSH 原生界面仍可直接处理；两处同时答复时，以原生流程先�
 
 ## 更新与卸载
 
-先处理未完成任务并退出 DSH。更新前在源码目录重新安装依赖、运行测试并构建，然后执行：
+**从 DSH「插件」页安装的版本**：先完成或停止协作任务，再从该插件的详情页执行「更新」；按页面提示启用并重启 DSH，重新调用 `dsh_health`、`dsh_catalog` 核验。卸载也在同一插件页完成。DSH 移除插件包不会删除独立的 `~/.dsh/agent-collaboration` 状态目录、DSH 原生会话和已执行的文件修改；外部客户端的 MCP 注册与远程适配器/隧道须分别清理。
 
-```bash
-node scripts/update-local.mjs
-```
+`scripts/update-local.mjs` 和 `scripts/uninstall-local.mjs` **只用于先前由 `scripts/install-local.mjs` 手工维护的安装**，不要拿它们操作插件页安装的 bundle。反过来，也不要在手工托管块仍存在时通过插件页叠加安装。
 
-**旧自用安装的兼容处理：** 如果原托管配置块没有 `stateDirectory`，新版更新和卸载脚本会保守拒绝操作。先完成任务并退出 DSH，在原 `BEGIN dsh-agent-collaboration` / `END dsh-agent-collaboration` 标记块的 `config` 下补上：
+### 旧安装迁移
+
+1. 完成或停止全部协作任务，**完全退出 DSH**。把 `~/.dsh/agent-collaboration` 复制到只有自己能读取的备份位置；其中包含明文令牌和任务记录，不要提交到仓库。
+2. 在本仓库源码目录运行 `node scripts/uninstall-local.mjs`。脚本会另备份原 profile 配置与旧插件包，移除带 `BEGIN/END dsh-agent-collaboration` 标记的旧配置及旧包，保留协作状态、连接凭据和 DSH 原生会话。记下返回的 `backup` 路径；报错时不要强行删除配置。
+3. 启动 DSH，按上文从「插件 → 添加插件」安装；启用后完全退出并重开。检查原有客户端授权及连接文件，再实际调用 `dsh_health` 和 `dsh_catalog`。旧 MCP 配置若指向已删除的文件路径，改为新安装的包入口后重载客户端。
+
+极早期手工配置若缺少 `stateDirectory`，卸载脚本会拒绝。确认原数据目录后，在原 `BEGIN/END dsh-agent-collaboration` 标记块的 `config` 下按原缩进补入真实绝对路径：
 
 ```yaml
 stateDirectory: '<原有协作数据目录的真实绝对路径>'
 ```
 
-按原配置的缩进放置该字段。默认旧目录是 `~/.dsh/agent-collaboration`；写入 YAML 时须展开为真实绝对路径。保留原状态和凭据的位置，不要新建空状态目录、移动数据或用 `--home` 绕过检查，再执行维护命令。
+旧默认目录为 `~/.dsh/agent-collaboration`，写入 YAML 时须展开为绝对路径。保留原状态和凭据，不要创建空状态目录、移动数据或改 `--home` 绕过检查，再重新运行卸载。
 
-卸载本插件：
-
-```bash
-node scripts/uninstall-local.mjs
-```
-
-两个命令同样支持 `--home`、`--profile`、`--state-dir` 和 `--backup`。它们仅维护本插件的安装目录和标记配置块；卸载保留 DSH 会话、协作状态和连接凭据以便恢复、核对。外部客户端的 MCP 注册、远程适配器和隧道需分别关闭或移除。卸载不会撤销已提交的工作。
-
-存在宿主占用锁、并发维护锁或未结束任务时，脚本会拒绝操作。若崩溃留下旧锁，先确认对应进程确已退出，再人工处理；不要为继续安装而直接删除仍有效的锁。
-
-托管块内出现额外插件、指令或未知字段时，脚本也会拒绝操作，避免误删配置。维护失败会尝试恢复；检测到并发修改时会保留改动和备份，提示人工处理。
+迁移或旧式离线维护遇到宿主占用锁、并发维护锁或未完成任务时会拒绝操作；确认真实状态后再处理。旧脚本的 `--home`、`--profile`、`--state-dir` 和 `--backup` 只用于明确指定旧安装的位置，不能用来迁移状态或绕过检查。出现额外插件行或未知配置时也会保守拒绝，避免误删无关配置。
 
 ## 开发与来源
 

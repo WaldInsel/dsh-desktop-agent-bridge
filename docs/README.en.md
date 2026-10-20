@@ -4,7 +4,7 @@
 
 Delegate work from Codex, Hermes, Grok Bot, or another MCP client to an **already running DeepSeek Harness desktop application**. Watch native conversations, add instructions, approve operations, take control, or stop work in the same DSH window.
 
-This is an independent third-party plugin, not affiliated with DeepSeek AI. Version `0.1.0` is a preview. **Windows with DSH `0.2.1-rc.2`** is the verified host combination; other systems and DSH versions are unverified.
+This is an independent third-party plugin, not affiliated with DeepSeek AI. Version `0.1.1` is a preview. **Windows with DSH `0.2.1-rc.2`** is the verified host combination; other systems and DSH versions are unverified.
 
 **Local stdio connections require no domain, server, or public service.** A cloud parent agent that cannot reach a local process needs a reachable HTTPS endpoint. A managed tunnel or self-hosted HTTPS can provide it; buying a domain or VPS is not required. Managed tunnels are an optional deployment suggestion, not an integrated or tested one-click feature. Default installation configures only the local plugin; it installs no new service, creates no account, and initiates no paid service.
 
@@ -19,30 +19,26 @@ This is an independent third-party plugin, not affiliated with DeepSeek AI. Vers
 
 Capability presets reuse existing DSH compositions, including their skills and MCP tools. The bridge does not install arbitrary skills or MCP servers, change global model defaults, or expose a permission-escalation API.
 
-## Install
+## Install directly in DSH
 
-Requirements: Node.js 22+, a working DSH desktop installation, and an MCP-capable client. Finish or stop collaboration tasks, then **exit DSH** before installing, updating, or uninstalling.
+The verified host is **DSH Desktop `0.2.1-rc.2`**. Finish or stop active collaboration tasks, then open **Plugins → Add plugin** in the DSH sidebar. Enter:
 
-From the repository:
-
-```bash
-npm ci --ignore-scripts --no-audit --no-fund
-npm test
-npm run build
-node scripts/install-local.mjs
+```text
+https://github.com/WaldInsel/dsh-desktop-agent-bridge
 ```
 
-The installer backs up its targets, copies the built plugin into the desktop profile, and adds a marked configuration block. It does not replace the DSH application. By default it creates no workspace and grants no resource access.
+Select **Install**, enable `dsh-agent-collaboration` if prompted, then **fully exit and restart DSH**. DSH manages this installation; you do not need to build the repository or run its legacy offline installer first. To pin reviewed code, use `github:WaldInsel/dsh-desktop-agent-bridge#<full-commit-sha>` after checking that the commit has been pushed. The Git repository includes prebuilt `dist/` files and bundled dependency licenses, so installation needs no permission to run a repository `prepare`/build script. The plugin runs inside the existing desktop host.
 
-Use `node scripts/install-local.mjs --help` for custom paths: `--home`, `--profile`, `--state-dir`, and `--backup`. The optional install-only `--initial-workspace <existing-directory>` registers a workspace and initial Codex permissions; omit it to configure access in the UI.
+The same field also accepts an **absolute local directory path** containing `package.json`, `cordis.patch.yml`, and `dist/`, such as `C:\Projects\dsh-desktop-agent-bridge`. That route is useful for development or offline installation. Review the source before installing any plugin: its code runs with your DSH user's permissions. See the [official DSH bundle installation guide](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-rc.2/docs/user/develop/basic/publish.md).
 
-Defaults are `~/.dsh/profiles/desktop` for the profile and `~/.dsh/agent-collaboration` for state. Backups are created in a new directory under `~/.dsh/backups/dsh-agent-collaboration/`, with the original configuration, previous plugin package if present, and `manifest.json`. Update and uninstall reuse the state path from the managed configuration block; `--state-dir` cannot migrate state or bypass active-task checks.
+**If you previously used `scripts/install-local.mjs`, do not install over it.** First follow [migrate a legacy installation](#migrate-a-legacy-installation) to remove its manually managed layer while preserving state and credentials.
 
-A successful result with `restartRequired: true` confirms file maintenance only, not DSH startup or client connectivity. Perform the checks below after starting DSH.
+### Connect an external agent
 
-Start DSH, open **Agent collaboration → Settings**, create one identity per client, select its permitted resources, and save. Empty permission lists grant nothing. Use that client's `client-<id>.json` path shown in settings.
-
-Example local stdio MCP configuration:
+1. After restart, confirm the **Agent collaboration** area appears and open **Agent collaboration → Settings**.
+2. Create separate identities for Codex, Hermes, or other clients. Grant each only the intended workspaces, existing capability presets, and models. New identities have no resource grants.
+3. Use each client's displayed `client-<id>.json` connection-file path. It contains a token; reference the file locally instead of pasting its contents into a chat or repository.
+4. Configure the local MCP client to launch the stdio bridge. **That external command needs Node.js 22+ on the system PATH**; the DSH plugin-page installation itself is managed by DSH.
 
 ```json
 {
@@ -50,7 +46,7 @@ Example local stdio MCP configuration:
     "dsh_collaboration": {
       "command": "node",
       "args": [
-        "<installed-plugin-directory>/dist/mcp.mjs",
+        "<DSH desktop profile>/node_modules/dsh-agent-collaboration/dist/mcp.mjs",
         "--connection",
         "<collaboration-state-directory>/client-codex.json"
       ]
@@ -59,9 +55,9 @@ Example local stdio MCP configuration:
 }
 ```
 
-Replace placeholders with absolute paths and adapt the configuration format to your client; Hermes uses `mcp_servers`. Never share one client's connection file with another client. The file contains a credential: reference its path rather than pasting its contents into a chat or repository.
+The default desktop profile is `~/.dsh/profiles/desktop`; state defaults to `~/.dsh/agent-collaboration`. Replace placeholders with absolute paths and **check that the installed package entry exists**. Do not assume a platform-independent physical pnpm store path. Adapt the client configuration format as needed; Hermes uses `mcp_servers`. Do not share one client's connection file with another.
 
-Reload MCP or open a new client conversation and actually call `dsh_health` and `dsh_catalog`. Cloud clients need a separately authenticated HTTP adapter and a reachable HTTPS channel; see [remote setup](remote.md). That deployment is optional and is not required for local use.
+Reload MCP or start a new client conversation, then actually call `dsh_health` and `dsh_catalog`. Cloud clients such as Grok Bot need an independently authenticated HTTP adapter and a reachable HTTPS channel; see [remote setup](remote.md). That is optional for local use.
 
 ## Task workflow
 
@@ -124,39 +120,33 @@ The native DSH UI remains available. Its first valid answer wins. Takeover, stop
 
 Windows + DSH `0.2.1-rc.2` has been tested against the existing desktop host for task creation, continuation, result retrieval, UI, takeover/release/stop, and native approvals. Parent-chat approval and question forwarding has completed a human round trip in **Codex only**; Grok/Hermes have interface and cross-identity rejection checks for that feature, not a human round-trip acceptance test.
 
-Those desktop acceptance results came from the local version before open-source preparation. The prepared code has passed automated regression, build, and MCP checks, but has not replaced the existing installation or repeated the full human desktop acceptance flow.
+The previous optimized `0.1.0` build has been installed in the existing DSH Desktop app and completed a real same-session two-turn task, takeover/release/stop, parent-agent question answering, one-time approval, and rejection. Verify the GitHub plugin-page installation path separately from those feature checks; after installing, call `dsh_health` and `dsh_catalog` and inspect the native session.
 
 Automated tests and a successful build do not establish compatibility with every client or host. The adapter depends on version-specific DSH model selection, interaction, and UI APIs. Revalidate after upgrading DSH.
 
 A client disconnect does not stop work already accepted by DSH. Desktop exit or a crash may interrupt work; there is no automatic task recovery or replay. Credential isolation is API access control, not isolation between processes running under the same OS account. Local state includes task text and interaction audit records. See [security](../SECURITY.md).
 
-## Update, uninstall, and contribute
+## Update and uninstall
 
-Exit DSH after resolving unfinished work. Rebuild the source before updating:
+**For a plugin installed in the DSH Plugins page:** finish or stop active collaboration tasks, use **Update** on that plugin's details page, follow any enable/restart prompt, then call `dsh_health` and `dsh_catalog` again. Uninstall from the same page. Removing the bundle leaves the separate `~/.dsh/agent-collaboration` state directory, native DSH sessions, and file changes already made. Remove external MCP registrations and any remote adapter/tunnel separately.
 
-```bash
-node scripts/update-local.mjs
-```
+`scripts/update-local.mjs` and `scripts/uninstall-local.mjs` are **only for installations previously managed by `scripts/install-local.mjs`**. Do not run them against a Plugins-page installation, and do not install a GUI bundle while the old manually managed configuration layer remains.
 
-**Legacy private installations:** update and uninstall reject a managed configuration block that lacks `stateDirectory`. Finish pending work and exit DSH first. Add the following under `config` inside the existing `BEGIN dsh-agent-collaboration` / `END dsh-agent-collaboration` block, preserving its indentation:
+### Migrate a legacy installation
+
+1. Finish or stop all collaboration tasks and **fully exit DSH**. Copy `~/.dsh/agent-collaboration` to a private backup location; it contains plain-text tokens and task records.
+2. From this repository checkout, run `node scripts/uninstall-local.mjs`. It separately backs up the old profile configuration and plugin package, removes only the marked manual layer and its package, and preserves state, credentials, and DSH sessions. Keep the reported `backup` path. Do not forcibly remove configuration if this step refuses.
+3. Start DSH and use **Plugins → Add plugin** as described above. Enable the bundle and fully restart DSH. Check that prior client grants and connection files remain, then call `dsh_health` and `dsh_catalog`. If an old MCP configuration points to a deleted file, update it to the installed package entry and reload the client.
+
+For very old manual blocks without `stateDirectory`, the uninstall script refuses. Identify the real existing state directory first, then add its absolute path under `config` in the original `BEGIN/END dsh-agent-collaboration` marked block, preserving indentation:
 
 ```yaml
 stateDirectory: '<actual absolute path of the existing collaboration data directory>'
 ```
 
-The former default is `~/.dsh/agent-collaboration`; expand it to its actual absolute path in YAML. Keep the existing state and credentials in place. Do not create empty replacement state, move data, or change `--home` to bypass the checks. Then run maintenance.
+The former default was `~/.dsh/agent-collaboration`; expand it to an absolute path in YAML. Keep the original state and credentials. Do not create empty replacement state, move data, or change `--home` to bypass the checks; then retry uninstall.
 
-To uninstall:
-
-```bash
-node scripts/uninstall-local.mjs
-```
-
-Both commands support the same path and backup options. Uninstall retains DSH sessions, collaboration state, and connection credentials. Remove client MCP registrations and stop remote adapters/tunnels separately. Uninstalling does not undo previously accepted work.
-
-Host locks, concurrent maintenance locks, or unfinished tasks block maintenance. If a crash leaves a stale lock, confirm that its process has exited before handling it manually; do not delete an active lock just to proceed.
-
-Additional plugins, instructions, or unknown fields inside the managed block also cause refusal, preventing accidental configuration removal. Failed maintenance attempts recovery; if concurrent edits are detected, it preserves those edits and backups for manual recovery.
+Legacy maintenance refuses active host/maintenance locks, unfinished work, and unknown entries within its managed block. Inspect those conditions rather than deleting live locks or overwriting unrelated configuration. Its `--home`, `--profile`, `--state-dir`, and `--backup` options locate the manual installation; they do not migrate state or bypass safety checks.
 
 The internal package `dsh-agent-collaboration`, plugin ID `agent-collaboration`, and MCP tool names remain unchanged for compatibility. The project repository is [dsh-desktop-agent-bridge](https://github.com/WaldInsel/dsh-desktop-agent-bridge).
 

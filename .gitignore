@@ -1,5 +1,7 @@
 node_modules/
-dist/
+dist/*
+!dist/*.mjs
+!dist/THIRD_PARTY_LICENSES.txt
 work/
 artifacts/
 coverage/

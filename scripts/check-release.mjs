@@ -9,12 +9,21 @@ assert.equal(manifest.name, PACKAGE_NAME);
 assert.equal(manifest.version, VERSION);
 assert.equal(manifest.license, 'MIT');
 assert.equal(manifest.private, true, 'npm publication is intentionally disabled');
+for (const script of ['preinstall', 'install', 'postinstall', 'prepare', 'prepack']) {
+  assert(!manifest.scripts?.[script], `GitHub installation must not run ${script}`);
+}
 const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
   { encoding: 'utf8' }).split('\0').filter(Boolean);
 assert(files.length > 0, 'Initialize the source repository before checking release files');
-const forbidden = /(?:^|\/)(?:node_modules|dist|work|artifacts|\.dsh|\.env[^/]*|state\.json|endpoint\.json|host\.lock|client-[^/]*\.json|remote-[^/]*\.json|[^/]*acceptance\.json|[^/]*\.(?:pem|key|p12|pfx|tgz))$/i;
+const built = ['dist/host.mjs', 'dist/client.mjs', 'dist/mcp.mjs',
+  'dist/remote-mcp.mjs', 'dist/THIRD_PARTY_LICENSES.txt'];
+const tracked = execFileSync('git', ['ls-files', '-z', '--cached'],
+  { encoding: 'utf8' }).split('\0').filter(Boolean);
+for (const file of built) assert(tracked.includes(file), `Built entry must be committed for GitHub installation: ${file}`);
+const forbidden = /(?:^|\/)(?:node_modules|work|artifacts|\.dsh|\.env[^/]*|state\.json|endpoint\.json|host\.lock|client-[^/]*\.json|remote-[^/]*\.json|[^/]*acceptance\.json|[^/]*\.(?:pem|key|p12|pfx|tgz))$/i;
 for (const file of new Set(files)) {
-  assert(!forbidden.test(file) && !/^(?:dist|work|artifacts|node_modules)\//.test(file),
+  assert(!forbidden.test(file) && !/^(?:work|artifacts|node_modules)\//.test(file) &&
+    (!file.startsWith('dist/') || built.includes(file)),
     `Runtime/generated file in source publication: ${file}`);
   assert(!(await lstat(file)).isSymbolicLink(), `Do not publish symlinks: ${file}`);
   const content = await readFile(file, 'utf8');
