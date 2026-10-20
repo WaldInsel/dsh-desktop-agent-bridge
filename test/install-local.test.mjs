@@ -11,9 +11,10 @@ const scripts = fileURLToPath(new URL('../scripts/', import.meta.url));
 const original = '# unrelated settings\r\n- insert:\r\n    - id: other-plugin\r\n      config: { enabled: true }\r\n';
 
 async function fixture(t) {
-  const base = await fs.mkdtemp(join(tmpdir(), 'dsh-installer-test-'));
+  // Match the installer's real paths, including Windows TEMP casing and short names.
+  const base = await fs.realpath(await fs.mkdtemp(join(tmpdir(), 'dsh-installer-test-')));
   t.after(async () => {
-    assert.equal(dirname(resolve(base)), resolve(tmpdir()));
+    assert.equal(dirname(resolve(base)), await fs.realpath(tmpdir()));
     assert.match(base, /dsh-installer-test-/);
     await fs.rm(base, { recursive: true, force: true });
   });
