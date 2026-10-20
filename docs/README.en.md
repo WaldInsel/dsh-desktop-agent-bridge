@@ -59,6 +59,18 @@ The default desktop profile is `~/.dsh/profiles/desktop`; state defaults to `~/.
 
 Reload MCP or start a new client conversation, then actually call `dsh_health` and `dsh_catalog`. Cloud clients such as Grok Bot need an independently authenticated HTTP adapter and a reachable HTTPS channel; see [remote setup](remote.md). That is optional for local use.
 
+### Skill for external agents
+
+The repository includes a [DSH Desktop Agent Bridge Skill](../.agents/skills/dsh-desktop-agent-bridge/SKILL.md) covering authorized resource selection, task delegation and continuation, result retrieval, and human approvals or answers. The Skill is guidance; it **does not establish an MCP connection or grant access**. Connect and authorize each client first.
+
+Codex can discover `.agents/skills/` in this repository. For Hermes, run `hermes skills trust` inside the repository before using its project Skill for the first time. To use it in other Codex projects, install it at user scope with an Agent Skills installer (requires Node.js 22.20+):
+
+```bash
+npx skills add WaldInsel/dsh-desktop-agent-bridge --skill dsh-desktop-agent-bridge -a codex -g
+```
+
+You can also copy the Skill into an agent's supported Skill directory. Hermes has `hermes skills install WaldInsel/dsh-desktop-agent-bridge/.agents/skills/dsh-desktop-agent-bridge`; review its security scan during installation. Grok Bot's public docs do not document automatic repository Skill discovery: give it the file contents to save as a private Skill, then check that it can invoke it. Consult each client's current Skill documentation for exact installation behavior.
+
 ## Task workflow
 
 1. Call `dsh_health`, then `dsh_catalog`.

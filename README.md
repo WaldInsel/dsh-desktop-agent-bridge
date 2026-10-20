@@ -59,6 +59,18 @@ https://github.com/WaldInsel/dsh-desktop-agent-bridge
 
 重载 MCP 或新建客户端会话后，实际调用 `dsh_health` 和 `dsh_catalog`。Grok Bot 等云端客户端需要独立认证的 HTTP 适配器和可达 HTTPS 通道，见[远程连接](docs/remote.md)；本机连接无需部署公网服务。
 
+### 给外部 Agent 的 Skill
+
+仓库提供 [DSH Desktop Agent Bridge Skill](.agents/skills/dsh-desktop-agent-bridge/SKILL.md)，让外部 Agent 知道如何选择授权资源、分派和续接任务、读取结果，以及把审批和问题交给用户。Skill 是操作说明，**不会自行建立 MCP 连接或授予权限**；先完成上面的客户端连接与 DSH 授权。
+
+Codex 可在本仓库发现 `.agents/skills/`；Hermes 首次使用仓库 Skill 前需在仓库内运行 `hermes skills trust`。要让 Codex 在其他项目也能使用，可用 Agent Skills 安装器安装到用户级目录（此安装器需要 Node.js 22.20+）：
+
+```bash
+npx skills add WaldInsel/dsh-desktop-agent-bridge --skill dsh-desktop-agent-bridge -a codex -g
+```
+
+也可将 Skill 文件复制到外部 Agent 支持的 Skill 目录。Hermes 可用其内置的 `hermes skills install WaldInsel/dsh-desktop-agent-bridge/.agents/skills/dsh-desktop-agent-bridge`，安装时审阅安全扫描结果。Grok Bot 的公开文档未说明会自动读取仓库 Skill；可将该文件内容交给它保存为私有 Skill，再检查是否可调用。不同客户端的 Skill 支持和安装步骤以各自当前文档为准。
+
 ## 分派任务
 
 正常流程是 `dsh_health → dsh_catalog → dsh_start_task → dsh_wait_task`。先读取授权目录，再使用目录中的精确资源标识：
